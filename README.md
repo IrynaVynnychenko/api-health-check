@@ -68,6 +68,37 @@ curl -X POST http://localhost:3000/api/webhooks/ingest \
   }'
 ```
 
+## CI/CD
+
+GitHub Actions workflows live in `.github/workflows`:
+
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| `ci.yml` | push / PR to `main` | `lint` → `typecheck` → `build` |
+| `deploy.yml` | push / PR to `main` | Preview/production deploy to Vercel |
+
+Local quality gate:
+
+```bash
+npm run ci
+```
+
+### Vercel deploy secrets
+
+Add these repository secrets in GitHub → Settings → Secrets and variables → Actions:
+
+| Secret | Where to get it |
+| --- | --- |
+| `VERCEL_TOKEN` | [Vercel account tokens](https://vercel.com/account/tokens) |
+| `VERCEL_ORG_ID` | `.vercel/project.json` after `npx vercel link` |
+| `VERCEL_PROJECT_ID` | `.vercel/project.json` after `npx vercel link` |
+
+Until those secrets exist, the Deploy workflow is skipped; CI still runs.
+
+Optional runtime env vars (`TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY`, etc.) should be set in the Vercel project settings.
+
+Dependabot is enabled for weekly npm and GitHub Actions updates.
+
 ## Architecture notes
 
 - In-memory store keeps metrics, incidents, and webhook deliveries for the running Node process

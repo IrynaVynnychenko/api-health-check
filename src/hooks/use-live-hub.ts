@@ -16,6 +16,15 @@ async function fetchJson<T>(url: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function mergeMetrics(base: MetricPoint[], live: MetricPoint[]): MetricPoint[] {
+  const byTimestamp = new Map<number, MetricPoint>();
+  for (const point of base) byTimestamp.set(point.timestamp, point);
+  for (const point of live) byTimestamp.set(point.timestamp, point);
+  return [...byTimestamp.values()]
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .slice(-120);
+}
+
 export function useLiveHub() {
   const queryClient = useQueryClient();
   const [connected, setConnected] = useState(false);
@@ -57,15 +66,6 @@ export function useLiveHub() {
   });
 
   useEffect(() => {
-    if (metricsQuery.data) {
-      setLiveMetrics((prev) => ({
-        ...prev,
-        [selectedServiceId]: metricsQuery.data,
-      }));
-    }
-  }, [metricsQuery.data, selectedServiceId]);
-
-  useEffect(() => {
     const source = new EventSource("/api/stream");
 
     source.onopen = () => setConnected(true);
@@ -84,7 +84,7 @@ export function useLiveHub() {
           const series = [...(prev[point.serviceId] ?? []), point].slice(-120);
           return { ...prev, [point.serviceId]: series };
         });
-        queryClient.invalidateQueries({ queryKey: ["services"] });
+        void queryClient.invalidateQueries({ queryKey: ["services"] });
       }
 
       if (event.type === "incident") {
@@ -96,10 +96,10 @@ export function useLiveHub() {
 
       if (event.type === "webhook") {
         queryClient.setQueryData<WebhookEvent[]>(["webhooks"], (current = []) =>
-          [event.payload, ...current.filter((e) => e.id !== event.payload.id)].slice(
-            0,
-            50,
-          ),
+          [
+            event.payload,
+            ...current.filter((item) => item.id !== event.payload.id),
+          ].slice(0, 50),
         );
       }
     };
@@ -107,8 +107,10 @@ export function useLiveHub() {
     return () => source.close();
   }, [queryClient]);
 
-  const chartMetrics =
-    liveMetrics[selectedServiceId] ?? metricsQuery.data ?? [];
+  const chartMetrics = mergeMetrics(
+    metricsQuery.data ?? [],
+    liveMetrics[selectedServiceId] ?? [],
+  );
 
   return {
     connected,

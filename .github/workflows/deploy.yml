@@ -1,0 +1,103 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write
+
+    steps:
+      - name: Check Vercel configuration
+        id: config
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Vercel secrets are not configured. Skipping deploy."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.config.outputs.configured == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: steps.config.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.config.outputs.configured == 'true'
+        run: npm ci
+
+      - name: Pull Vercel environment
+        if: steps.config.outputs.configured == 'true'
+        run: >
+          npx vercel pull --yes
+          --environment=${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+          --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build project artifacts
+        if: steps.config.outputs.configured == 'true'
+        run: >
+          npx vercel build
+          ${{ github.event_name != 'pull_request' && '--prod' || '' }}
+          --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel
+        if: steps.config.outputs.configured == 'true'
+        id: deploy
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            url=$(npx vercel deploy --prebuilt --token="$VERCEL_TOKEN")
+          else
+            url=$(npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed to: $url"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Comment preview URL on PR
+        if: >
+          steps.config.outputs.configured == 'true' &&
+          github.event_name == 'pull_request' &&
+          steps.deploy.outputs.url != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.deploy.outputs.url }}';
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `🚀 Preview deployed to: ${url}`,
+            });
