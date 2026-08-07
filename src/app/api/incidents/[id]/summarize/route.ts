@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { summarizeIncident } from "@/lib/openai";
-import { publish } from "@/lib/events";
 import { getIncidents, updateIncident } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +22,7 @@ export async function POST(
     return NextResponse.json({ error: "Incident not found" }, { status: 404 });
   }
 
-  publish({ type: "incident", payload: updated });
-
+  // Do not publish over SSE — the click handler patches the card in place.
+  // Broadcasting here was reshuffling the incidents list in the UI.
   return NextResponse.json({ incident: updated });
 }

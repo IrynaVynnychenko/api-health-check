@@ -105,13 +105,6 @@ export function IncidentsPanel({ incidents }: { incidents: Incident[] }) {
                   >
                     {incident.status}
                   </span>
-                  {incident.summarySource ? (
-                    <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700">
-                      {incident.summarySource === "openai"
-                        ? "AI summary"
-                        : "Heuristic"}
-                    </span>
-                  ) : null}
                 </div>
 
                 <p className="mt-2 text-sm leading-relaxed break-words text-slate-600">
@@ -132,13 +125,9 @@ export function IncidentsPanel({ incidents }: { incidents: Incident[] }) {
                     type="button"
                     onClick={() => summarize.mutate(incident.id)}
                     disabled={isPending}
-                    className="w-full rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white transition hover:bg-slate-700 disabled:opacity-50 sm:ml-auto sm:w-auto"
+                    className="w-full rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-700 disabled:opacity-50 sm:ml-auto sm:w-auto"
                   >
-                    {isPending
-                      ? "Summarizing…"
-                      : incident.summary
-                        ? "Regenerate"
-                        : "AI summary"}
+                    AI summary
                   </button>
                 </div>
               </article>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   Incident,
   MetricPoint,
@@ -48,31 +48,55 @@ function patchServiceFromMetric(
   );
 }
 
-function compareIncidents(a: Incident, b: Incident): number {
-  if (b.startedAt !== a.startedAt) return b.startedAt - a.startedAt;
-  return a.id.localeCompare(b.id);
-}
-
-export function sortIncidents(incidents: Incident[]): Incident[] {
-  return [...incidents].sort(compareIncidents);
-}
-
-/** Update in place when possible; always keep newest-first by startedAt. */
+/** Update fields only. Never changes position of an existing incident. */
 export function upsertIncident(
   current: Incident[] | undefined,
   incident: Incident,
 ): Incident[] {
   const list = current ?? [];
   const index = list.findIndex((item) => item.id === incident.id);
-  const next =
-    index === -1
-      ? [incident, ...list]
-      : list.map((item, i) => (i === index ? incident : item));
-  return sortIncidents(next).slice(0, 100);
+
+  if (index !== -1) {
+    const next = [...list];
+    next[index] = incident;
+    return next;
+  }
+
+  // Brand-new incident only — put it first, do not reshuffle the rest.
+  return [incident, ...list].slice(0, 100);
+}
+
+function lockIncidentOrder(
+  incidents: Incident[],
+  orderRef: { current: string[] },
+): Incident[] {
+  if (incidents.length === 0) return incidents;
+
+  const byId = new Map(incidents.map((incident) => [incident.id, incident]));
+
+  if (orderRef.current.length === 0) {
+    orderRef.current = incidents.map((incident) => incident.id);
+    return incidents;
+  }
+
+  const existingIds = new Set(orderRef.current);
+  const newcomers = incidents
+    .filter((incident) => !existingIds.has(incident.id))
+    .map((incident) => incident.id);
+
+  orderRef.current = [
+    ...newcomers,
+    ...orderRef.current.filter((id) => byId.has(id)),
+  ];
+
+  return orderRef.current
+    .map((id) => byId.get(id))
+    .filter((incident): incident is Incident => incident != null);
 }
 
 export function useLiveHub() {
   const queryClient = useQueryClient();
+  const incidentOrderRef = useRef<string[]>([]);
   const [connected, setConnected] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("stripe");
   const [liveMetrics, setLiveMetrics] = useState<Record<string, MetricPoint[]>>(
@@ -93,8 +117,8 @@ export function useLiveHub() {
   const incidentsQuery = useQuery({
     queryKey: INCIDENTS_KEY,
     queryFn: () =>
-      fetchJson<{ incidents: Incident[] }>("/api/incidents").then((data) =>
-        sortIncidents(data.incidents),
+      fetchJson<{ incidents: Incident[] }>("/api/incidents").then(
+        (data) => data.incidents,
       ),
     staleTime: Infinity,
     refetchOnMount: false,
@@ -151,7 +175,10 @@ export function useLiveHub() {
       }
 
       if (event.type === "incidents") {
-        queryClient.setQueryData(INCIDENTS_KEY, sortIncidents(event.payload));
+        // Hydrate once. Later reconnects must not reshuffle the UI.
+        queryClient.setQueryData<Incident[]>(INCIDENTS_KEY, (current) =>
+          current?.length ? current : event.payload,
+        );
         return;
       }
 
@@ -208,12 +235,17 @@ export function useLiveHub() {
     liveMetrics[selectedServiceId] ?? [],
   );
 
+  const incidents = lockIncidentOrder(
+    incidentsQuery.data ?? [],
+    incidentOrderRef,
+  );
+
   return {
     connected,
     selectedServiceId,
     setSelectedServiceId,
     services: servicesQuery.data ?? [],
-    incidents: incidentsQuery.data ?? [],
+    incidents,
     webhooks: webhooksQuery.data ?? [],
     chartMetrics,
     isLoading: servicesQuery.isLoading,

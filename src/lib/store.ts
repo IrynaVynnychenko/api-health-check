@@ -130,15 +130,11 @@ export function appendIncidentLog(
 }
 
 export function getIncidents(): Incident[] {
-  return getState()
-    .incidents.map((incident) => ({
-      ...incident,
-      logs: [...incident.logs],
-    }))
-    .sort((a, b) => {
-      if (b.startedAt !== a.startedAt) return b.startedAt - a.startedAt;
-      return a.id.localeCompare(b.id);
-    });
+  // Preserve store insertion order — never sort here (sorting reshuffled the UI).
+  return getState().incidents.map((incident) => ({
+    ...incident,
+    logs: [...incident.logs],
+  }));
 }
 
 export function getOpenIncident(serviceId: string): Incident | undefined {
