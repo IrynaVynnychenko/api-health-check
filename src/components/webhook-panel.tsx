@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { hubQueryKeys } from "@/hooks/use-live-hub";
 import type { WebhookEvent } from "@/lib/types";
 
 const EXAMPLE = {
@@ -35,9 +36,9 @@ export function WebhookPanel({ events }: { events: WebhookEvent[] }) {
       return response.json();
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["webhooks"] });
-      void queryClient.invalidateQueries({ queryKey: ["incidents"] });
-      void queryClient.invalidateQueries({ queryKey: ["services"] });
+      void queryClient.invalidateQueries({ queryKey: hubQueryKeys.webhooks });
+      void queryClient.invalidateQueries({ queryKey: hubQueryKeys.incidents });
+      void queryClient.invalidateQueries({ queryKey: hubQueryKeys.services });
     },
   });
 
@@ -55,7 +56,7 @@ export function WebhookPanel({ events }: { events: WebhookEvent[] }) {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm backdrop-blur">
+    <div className="flex h-full min-w-0 flex-col rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur sm:p-5">
       <div className="mb-4">
         <h2 className="text-lg font-semibold tracking-tight text-slate-900">
           Webhook playground
@@ -65,12 +66,12 @@ export function WebhookPanel({ events }: { events: WebhookEvent[] }) {
         </p>
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 font-mono text-xs text-teal-200">
-        <span className="truncate">{endpoint}</span>
+      <div className="mb-3 flex min-w-0 items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 font-mono text-[11px] text-teal-200 sm:text-xs">
+        <span className="min-w-0 flex-1 truncate">{endpoint}</span>
         <button
           type="button"
           onClick={() => void copyEndpoint()}
-          className="ml-auto rounded-md bg-white/10 px-2 py-1 text-white hover:bg-white/20"
+          className="shrink-0 rounded-md bg-white/10 px-2 py-1 text-white hover:bg-white/20"
         >
           {copied ? "Copied" : "Copy"}
         </button>
@@ -79,8 +80,8 @@ export function WebhookPanel({ events }: { events: WebhookEvent[] }) {
       <textarea
         value={payload}
         onChange={(event) => setPayload(event.target.value)}
-        rows={9}
-        className="mb-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 outline-none ring-teal-500/30 focus:ring-2"
+        rows={8}
+        className="mb-3 h-40 w-full max-w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 outline-none ring-teal-500/30 focus:ring-2 sm:h-52"
       />
 
       <div className="mb-5 flex flex-wrap gap-2">

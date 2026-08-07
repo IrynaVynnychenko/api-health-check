@@ -7,10 +7,18 @@ const STYLES: Record<ServiceStatus, string> = {
   unknown: "bg-slate-100 text-slate-700 ring-slate-200",
 };
 
+const LABELS: Record<ServiceStatus, string> = {
+  operational: "ok",
+  degraded: "degraded",
+  outage: "outage",
+  unknown: "unknown",
+};
+
 export function StatusBadge({ status }: { status: ServiceStatus }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${STYLES[status]}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ring-1 ring-inset sm:px-2.5 sm:text-xs ${STYLES[status]}`}
+      title={status}
     >
       <span
         className={`size-1.5 rounded-full ${
@@ -23,7 +31,8 @@ export function StatusBadge({ status }: { status: ServiceStatus }) {
                 : "bg-slate-400"
         }`}
       />
-      {status}
+      <span className="sm:hidden">{LABELS[status]}</span>
+      <span className="hidden sm:inline">{status}</span>
     </span>
   );
 }

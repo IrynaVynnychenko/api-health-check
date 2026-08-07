@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { hubQueryKeys } from "@/hooks/use-live-hub";
 import type { Incident } from "@/lib/types";
 
 const SEVERITY_STYLE: Record<Incident["severity"], string> = {
@@ -22,12 +23,12 @@ export function IncidentsPanel({ incidents }: { incidents: Incident[] }) {
       return response.json();
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      void queryClient.invalidateQueries({ queryKey: hubQueryKeys.incidents });
     },
   });
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm backdrop-blur">
+    <div className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur sm:p-5">
       <div className="mb-4">
         <h2 className="text-lg font-semibold tracking-tight text-slate-900">
           Incidents
@@ -47,10 +48,10 @@ export function IncidentsPanel({ incidents }: { incidents: Incident[] }) {
           incidents.slice(0, 8).map((incident) => (
             <article
               key={incident.id}
-              className="rounded-xl border border-slate-200 bg-slate-50/60 p-4"
+              className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-medium text-slate-900">
+                <h3 className="min-w-0 break-words font-medium text-slate-900">
                   {incident.serviceName}: {incident.title}
                 </h3>
                 <span
@@ -69,19 +70,21 @@ export function IncidentsPanel({ incidents }: { incidents: Incident[] }) {
                 </span>
               </div>
 
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              <p className="mt-2 text-sm leading-relaxed break-words text-slate-600">
                 {incident.summary ??
                   "Summary pending — generate one from recent probe logs."}
               </p>
 
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                <span>{new Date(incident.startedAt).toLocaleString()}</span>
-                <span>source: {incident.source}</span>
+              <div className="mt-3 flex flex-col gap-2 text-xs text-slate-400 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
+                  <span>{new Date(incident.startedAt).toLocaleString()}</span>
+                  <span>source: {incident.source}</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => summarize.mutate(incident.id)}
                   disabled={summarize.isPending}
-                  className="ml-auto rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+                  className="w-full rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white transition hover:bg-slate-700 disabled:opacity-50 sm:ml-auto sm:w-auto"
                 >
                   {summarize.isPending ? "Summarizing…" : "AI summary"}
                 </button>

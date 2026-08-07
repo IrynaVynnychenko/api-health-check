@@ -143,7 +143,7 @@ export async function runMonitorTick(): Promise<void> {
 }
 
 export function startMonitor(): void {
-  if (globalForMonitor.__hubMonitorStarted) return;
+  if (globalForMonitor.__hubMonitorTimer) return;
   globalForMonitor.__hubMonitorStarted = true;
 
   void runMonitorTick();

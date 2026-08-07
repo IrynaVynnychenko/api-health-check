@@ -14,8 +14,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  overflow-x: clip;
+}
+
 body {
   min-height: 100%;
+  overflow-x: clip;
   color: var(--foreground);
   background:
     radial-gradient(1200px 500px at 10% -10%, var(--glow), transparent 55%),
