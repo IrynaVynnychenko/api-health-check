@@ -27,12 +27,9 @@ export async function GET() {
       };
 
       send({ type: "snapshot", payload: getSnapshots() });
-      for (const incident of getIncidents().slice(0, 20)) {
-        send({ type: "incident", payload: incident });
-      }
-      for (const webhook of getWebhookEvents().slice(0, 10)) {
-        send({ type: "webhook", payload: webhook });
-      }
+      // Replace lists in one shot — replaying item-by-item reordered the UI.
+      send({ type: "incidents", payload: getIncidents().slice(0, 20) });
+      send({ type: "webhooks", payload: getWebhookEvents().slice(0, 10) });
 
       const unsubscribe = subscribe(send);
       const heartbeat = setInterval(() => {

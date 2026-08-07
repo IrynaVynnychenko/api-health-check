@@ -1,11 +1,18 @@
 import OpenAI from "openai";
-import type { Incident } from "./types";
+import type { Incident, SummarySource } from "./types";
 
-export async function summarizeIncident(incident: Incident): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
+export type IncidentSummary = {
+  summary: string;
+  source: SummarySource;
+};
+
+export async function summarizeIncident(
+  incident: Incident,
+): Promise<IncidentSummary> {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
 
   if (!apiKey) {
-    return heuristicSummary(incident);
+    return { summary: heuristicSummary(incident), source: "heuristic" };
   }
 
   try {
@@ -28,20 +35,49 @@ export async function summarizeIncident(incident: Incident): Promise<string> {
             `Severity: ${incident.severity}`,
             `Source: ${incident.source}`,
             "Recent logs:",
-            ...incident.logs.slice(0, 12),
+            ...selectLogs(incident.logs),
           ].join("\n"),
         },
       ],
     });
 
     const text = completion.choices[0]?.message?.content?.trim();
-    return text || heuristicSummary(incident);
+    if (!text) {
+      return { summary: heuristicSummary(incident), source: "heuristic" };
+    }
+    return { summary: text, source: "openai" };
   } catch {
-    return heuristicSummary(incident);
+    return { summary: heuristicSummary(incident), source: "heuristic" };
   }
 }
 
+function selectLogs(logs: string[], limit = 12): string[] {
+  if (logs.length <= limit) return logs;
+
+  const head = logs.slice(0, 4);
+  const tail = logs.slice(-(limit - head.length));
+  return [...head, "…", ...tail];
+}
+
+function pickHint(logs: string[]): string {
+  const preferred = [...logs]
+    .reverse()
+    .find(
+      (line) =>
+        !line.includes("still failing") &&
+        !line.includes("recovered") &&
+        line !== "Insufficient history",
+    );
+
+  return (
+    preferred ??
+    logs.find((line) => line.includes("still failing")) ??
+    logs.at(-1) ??
+    "No detailed logs available."
+  );
+}
+
 function heuristicSummary(incident: Incident): string {
-  const hint = incident.logs[0] ?? "No detailed logs available.";
+  const hint = pickHint(incident.logs);
   return `${incident.serviceName} triggered "${incident.title}" (${incident.severity}). Likely cause based on recent probes: ${hint} Recommend checking the vendor status page and retrying dependent workflows.`;
 }

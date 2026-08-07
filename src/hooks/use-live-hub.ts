@@ -48,6 +48,29 @@ function patchServiceFromMetric(
   );
 }
 
+function compareIncidents(a: Incident, b: Incident): number {
+  if (b.startedAt !== a.startedAt) return b.startedAt - a.startedAt;
+  return a.id.localeCompare(b.id);
+}
+
+export function sortIncidents(incidents: Incident[]): Incident[] {
+  return [...incidents].sort(compareIncidents);
+}
+
+/** Update in place when possible; always keep newest-first by startedAt. */
+export function upsertIncident(
+  current: Incident[] | undefined,
+  incident: Incident,
+): Incident[] {
+  const list = current ?? [];
+  const index = list.findIndex((item) => item.id === incident.id);
+  const next =
+    index === -1
+      ? [incident, ...list]
+      : list.map((item, i) => (i === index ? incident : item));
+  return sortIncidents(next).slice(0, 100);
+}
+
 export function useLiveHub() {
   const queryClient = useQueryClient();
   const [connected, setConnected] = useState(false);
@@ -70,8 +93,8 @@ export function useLiveHub() {
   const incidentsQuery = useQuery({
     queryKey: INCIDENTS_KEY,
     queryFn: () =>
-      fetchJson<{ incidents: Incident[] }>("/api/incidents").then(
-        (data) => data.incidents,
+      fetchJson<{ incidents: Incident[] }>("/api/incidents").then((data) =>
+        sortIncidents(data.incidents),
       ),
     staleTime: Infinity,
     refetchOnMount: false,
@@ -127,6 +150,16 @@ export function useLiveHub() {
         return;
       }
 
+      if (event.type === "incidents") {
+        queryClient.setQueryData(INCIDENTS_KEY, sortIncidents(event.payload));
+        return;
+      }
+
+      if (event.type === "webhooks") {
+        queryClient.setQueryData(WEBHOOKS_KEY, event.payload);
+        return;
+      }
+
       if (event.type === "metric") {
         const point = event.payload;
         setLiveMetrics((prev) => {
@@ -140,20 +173,24 @@ export function useLiveHub() {
       }
 
       if (event.type === "incident") {
-        queryClient.setQueryData<Incident[]>(INCIDENTS_KEY, (current = []) => {
-          const others = current.filter((item) => item.id !== event.payload.id);
-          return [event.payload, ...others].slice(0, 100);
-        });
+        queryClient.setQueryData<Incident[]>(INCIDENTS_KEY, (current) =>
+          upsertIncident(current, event.payload),
+        );
         return;
       }
 
       if (event.type === "webhook") {
-        queryClient.setQueryData<WebhookEvent[]>(WEBHOOKS_KEY, (current = []) =>
-          [
-            event.payload,
-            ...current.filter((item) => item.id !== event.payload.id),
-          ].slice(0, 50),
-        );
+        queryClient.setQueryData<WebhookEvent[]>(WEBHOOKS_KEY, (current = []) => {
+          const index = current.findIndex(
+            (item) => item.id === event.payload.id,
+          );
+          if (index === -1) {
+            return [event.payload, ...current].slice(0, 50);
+          }
+          const next = [...current];
+          next[index] = event.payload;
+          return next;
+        });
       }
     };
 

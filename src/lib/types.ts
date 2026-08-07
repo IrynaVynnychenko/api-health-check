@@ -22,6 +22,8 @@ export type MetricPoint = {
 
 export type IncidentSeverity = "low" | "medium" | "high" | "critical";
 
+export type SummarySource = "openai" | "heuristic";
+
 export type Incident = {
   id: string;
   serviceId: string;
@@ -33,6 +35,7 @@ export type Incident = {
   resolvedAt: number | null;
   logs: string[];
   summary: string | null;
+  summarySource: SummarySource | null;
   source: "anomaly" | "statuspage" | "webhook";
 };
 
@@ -56,6 +59,8 @@ export type ServiceSnapshot = {
 
 export type StreamEvent =
   | { type: "snapshot"; payload: ServiceSnapshot[] }
+  | { type: "incidents"; payload: Incident[] }
+  | { type: "webhooks"; payload: WebhookEvent[] }
   | { type: "metric"; payload: MetricPoint }
   | { type: "incident"; payload: Incident }
   | { type: "webhook"; payload: WebhookEvent }

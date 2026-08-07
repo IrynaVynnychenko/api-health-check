@@ -101,14 +101,16 @@ export async function POST(request: NextRequest) {
           anomaly.reason,
         ],
         summary: null,
+        summarySource: null,
         source: "webhook",
       };
 
       addIncident(incident);
       publish({ type: "incident", payload: incident });
 
-      const summary = await summarizeIncident(incident);
-      const updated = updateIncident(incident.id, { summary });
+      const { summary, source: summarySource } =
+        await summarizeIncident(incident);
+      const updated = updateIncident(incident.id, { summary, summarySource });
       if (updated) publish({ type: "incident", payload: updated });
 
       await sendTelegramAlert(

@@ -16,12 +16,14 @@ export async function POST(
     return NextResponse.json({ error: "Incident not found" }, { status: 404 });
   }
 
-  const summary = await summarizeIncident(incident);
-  const updated = updateIncident(id, { summary });
+  const { summary, source: summarySource } = await summarizeIncident(incident);
+  const updated = updateIncident(id, { summary, summarySource });
 
-  if (updated) {
-    publish({ type: "incident", payload: updated });
+  if (!updated) {
+    return NextResponse.json({ error: "Incident not found" }, { status: 404 });
   }
+
+  publish({ type: "incident", payload: updated });
 
   return NextResponse.json({ incident: updated });
 }

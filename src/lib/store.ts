@@ -116,14 +116,37 @@ export function updateIncident(
   return state.incidents[index];
 }
 
+/** Keep the earliest context lines while capping total log volume. */
+export function appendIncidentLog(
+  logs: string[],
+  entry: string,
+  max = 20,
+  keepHead = 3,
+): string[] {
+  const next = [...logs, entry];
+  if (next.length <= max) return next;
+  const tailCount = Math.max(max - keepHead, 1);
+  return [...next.slice(0, keepHead), ...next.slice(-tailCount)];
+}
+
 export function getIncidents(): Incident[] {
-  return [...getState().incidents];
+  return getState()
+    .incidents.map((incident) => ({
+      ...incident,
+      logs: [...incident.logs],
+    }))
+    .sort((a, b) => {
+      if (b.startedAt !== a.startedAt) return b.startedAt - a.startedAt;
+      return a.id.localeCompare(b.id);
+    });
 }
 
 export function getOpenIncident(serviceId: string): Incident | undefined {
-  return getState().incidents.find(
+  const incident = getState().incidents.find(
     (i) => i.serviceId === serviceId && i.status === "open",
   );
+  if (!incident) return undefined;
+  return { ...incident, logs: [...incident.logs] };
 }
 
 export function addWebhookEvent(event: WebhookEvent): WebhookEvent {

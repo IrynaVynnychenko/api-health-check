@@ -6,6 +6,7 @@ import { fetchStatuspage } from "./statuspage";
 import {
   addIncident,
   addMetric,
+  appendIncidentLog,
   getOpenIncident,
   getRecentMetrics,
   getSnapshots,
@@ -90,14 +91,16 @@ async function checkService(serviceId: string): Promise<void> {
         resolvedAt: null,
         logs,
         summary: null,
+        summarySource: null,
         source: "anomaly",
       };
 
       addIncident(incident);
       publish({ type: "incident", payload: incident });
 
-      const summary = await summarizeIncident(incident);
-      const updated = updateIncident(incident.id, { summary });
+      const { summary, source: summarySource } =
+        await summarizeIncident(incident);
+      const updated = updateIncident(incident.id, { summary, summarySource });
       if (updated) publish({ type: "incident", payload: updated });
 
       await sendTelegramAlert(
@@ -110,21 +113,23 @@ async function checkService(serviceId: string): Promise<void> {
         ].join("\n"),
       );
     } else {
+      // Keep logs in the store for later summaries, but don't broadcast every
+      // tick — that used to reshuffle the incidents list in the UI.
       updateIncident(open.id, {
-        logs: [
-          ...open.logs,
+        logs: appendIncidentLog(
+          open.logs,
           `${new Date().toISOString()} still failing — ${anomaly.reason}`,
-        ].slice(-20),
+        ),
       });
     }
   } else if (open && metric.success && metric.errorRate < 15) {
     const resolved = updateIncident(open.id, {
       status: "resolved",
       resolvedAt: Date.now(),
-      logs: [
-        ...open.logs,
+      logs: appendIncidentLog(
+        open.logs,
         `${new Date().toISOString()} recovered — latency ${Math.round(metric.latencyMs)}ms`,
-      ],
+      ),
     });
     if (resolved) {
       publish({ type: "incident", payload: resolved });
