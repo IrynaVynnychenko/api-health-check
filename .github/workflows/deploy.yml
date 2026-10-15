@@ -91,7 +91,7 @@ jobs:
           steps.config.outputs.configured == 'true' &&
           github.event_name == 'pull_request' &&
           steps.deploy.outputs.url != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const url = '${{ steps.deploy.outputs.url }}';
